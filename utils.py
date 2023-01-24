@@ -9,6 +9,9 @@ def get_model(args):
                 "weight_init":args.weight_init,
                 "dft_lr":args.dft_lr,"learn_ifft":(args.learn_ifft),"forward_drop":args.forward_drop,
                 "fft_dropout":args.fft_dropout,"m_max":args.m_max}
+        assert kwargs["{}".format("learn_ifft")]!=None, "{} must be specified".format("learn_ifft")
+        assert args.use_monarch!=None, "use_monarch must be specified"
+        assert kwargs["{}".format("learn_dft_mat")]!=None, "{} must be specified".format("learn_dft_mat")
         model = MLPMixer(
             in_channels=3,
             img_size=args.size,
