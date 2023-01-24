@@ -7,7 +7,7 @@ wandb.login()
 from dataloader import get_dataloaders
 from utils import get_model
 from train import Trainer
-
+from distutils.util import strtobool
 parser = argparse.ArgumentParser()
 parser.add_argument('--dataset', required=True, choices=['c10', 'c100', 'svhn'])
 parser.add_argument('--model', required=True, choices=['mlp_mixer'])
@@ -43,6 +43,19 @@ parser.add_argument('--autoaugment', action='store_true')
 parser.add_argument('--clip-grad', type=float, default=0, help="0 means disabling clip-grad")
 parser.add_argument('--cutmix-beta', type=float, default=1.0)
 parser.add_argument('--cutmix-prob', type=float, default=0.)
+##Monarch Conv args
+parser.add_argument("--use_monarch", dest="use_monarch", type=lambda x:bool(strtobool(x)))
+parser.add_argument("--lam",default=0.003,type=float)
+#parser.add_argument("--bidirectional",dest="bidirectional",type=lambda x:bool(strtobool(x)) ) there is a bug here (elliot Jan 23)
+parser.add_argument("--kernel_dropout",default=0.2,type=float)
+parser.add_argument("--learn_dft_mat",dest="learn_dft_mat",type=lambda x:bool(strtobool(x)) )
+parser.add_argument("--learning_rate",default=0.001,type=float)
+parser.add_argument("--weight_init",default="random",type=str) #hippo and sgconv not supported
+parser.add_argument("--dft_lr",default=0.0001,type=float)
+parser.add_argument("--learn_ifft",dest="learn_ifft",type=lambda x:bool(strtobool(x)))
+parser.add_argument("--forward_drop",default=0,type=float)
+parser.add_argument("--fft_dropout",default=0,type=float)
+parser.add_argument("--m_max",default=32,type=int)
 
 args = parser.parse_args()
 args.device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')

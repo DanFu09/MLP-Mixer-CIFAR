@@ -3,10 +3,12 @@ import torch.nn as nn
 import torch.nn.functional as F
 from einops.layers.torch import Rearrange
 import torchsummary
-
+from monarch_lconv_standalone import MonarchConv
+from einops import rearrange
 
 class MLPMixer(nn.Module):
-    def __init__(self,in_channels=3,img_size=32, patch_size=4, hidden_size=512, hidden_s=256, hidden_c=2048, num_layers=8, num_classes=10, drop_p=0., off_act=False, is_cls_token=False):
+    def __init__(self,in_channels=3,img_size=32, patch_size=4, hidden_size=512, hidden_s=256, hidden_c=2048, num_layers=8, num_classes=10, drop_p=0., 
+    off_act=False, is_cls_token=False,use_monarch=False,**kwargs):
         super(MLPMixer, self).__init__()
         num_patches = img_size // patch_size * img_size // patch_size
         # (b, c, h, w) -> (b, d, h//p, w//p) -> (b, h//p*w//p, d)
@@ -24,7 +26,7 @@ class MLPMixer(nn.Module):
 
         self.mixer_layers = nn.Sequential(
             *[
-                MixerLayer(num_patches, hidden_size, hidden_s, hidden_c, drop_p, off_act) 
+                MixerLayer(num_patches, hidden_size, hidden_s, hidden_c, drop_p, off_act,use_monarch=use_monarch,**kwargs) 
             for _ in range(num_layers)
             ]
         )
@@ -45,13 +47,33 @@ class MLPMixer(nn.Module):
 
 
 class MixerLayer(nn.Module):
-    def __init__(self, num_patches, hidden_size, hidden_s, hidden_c, drop_p, off_act):
+    def __init__(self, num_patches, hidden_size, hidden_s, hidden_c, drop_p, off_act,use_monarch=False,**kwargs):
         super(MixerLayer, self).__init__()
-        self.mlp1 = MLP1(num_patches, hidden_s, hidden_size, drop_p, off_act)
-        self.mlp2 = MLP2(hidden_size, hidden_c, drop_p, off_act)
+        #breakpoint()
+        self.use_monarch = use_monarch
+        self.num_patches = num_patches
+        if self.use_monarch:
+            self.ln1 = nn.LayerNorm(hidden_size)
+            self.mc1 = MonarchConv(hidden_size,num_patches,**kwargs)  #First argument is hidden dim, second argument is sequence dim
+            self.mc2 = MonarchConv(num_patches,hidden_size,**kwargs)
+            self.ln2 = nn.LayerNorm(hidden_size)
+        else:
+            self.mlp1 = MLP1(num_patches, hidden_s, hidden_size, drop_p, off_act)
+            self.mlp2 = MLP2(hidden_size, hidden_c, drop_p, off_act)
     def forward(self, x):
-        out = self.mlp1(x)
-        out = self.mlp2(out)
+         #x = (128, 64, 128) (batch_sz, N_patches, Hidden_dim)
+        if not self.use_monarch:
+            out = self.mlp1(x)
+            out = self.mlp2(out)
+            #The first mlp is over the N_patches dimension (i.e. the sequence length) and the second mlp is over Hidden_dim,
+            #We first mix over sequence dim (like ViT multihead attention) we then mix features
+        else:
+            x = rearrange(x,"b n h -> b h n")
+            out = self.mc1(torch.transpose(self.ln1(torch.transpose(x,-2,-1)),-2,-1))+x
+            out = rearrange(out,"b h n -> b n h")
+            #breakpoint()
+            out = self.mc2(self.ln2(out))+out
+        
         return out
 
 class MLP1(nn.Module):

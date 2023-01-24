@@ -4,6 +4,11 @@ def get_model(args):
     model = None
     if args.model=='mlp_mixer':
         from mlp_mixer import MLPMixer
+        kwargs = {"lam":args.lam,"kernel_dropout":args.kernel_dropout,
+                "learn_dft_mat":(args.learn_dft_mat),"learning_rate":args.learning_rate,
+                "weight_init":args.weight_init,
+                "dft_lr":args.dft_lr,"learn_ifft":(args.learn_ifft),"forward_drop":args.forward_drop,
+                "fft_dropout":args.fft_dropout,"m_max":args.m_max}
         model = MLPMixer(
             in_channels=3,
             img_size=args.size,
@@ -15,7 +20,10 @@ def get_model(args):
             num_classes=args.num_classes,
             drop_p=args.drop_p,
             off_act=args.off_act,
-            is_cls_token=args.is_cls_token
+            is_cls_token=args.is_cls_token,
+            use_monarch=args.use_monarch,
+            **kwargs
+
         )
     else:
         raise ValueError(f"No such model: {args.model}")
